@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CSV Data D3.js Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .chart { margin: 40px; }
+        .bar { fill: steelblue; }
+        .bar:hover { fill: orange; }
+        .axis-label { font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Rad viz iris</h1>
+    <div id="radviz"></div>
+    <script>
+        // Data and config from Flask
+        const data = {{ data|safe }};
+        const dimensions = {{ dimensions|safe }};
+        const label_col = "{{ label_col }}";
+
+        const width = 700, height = 400, margin = 40;
+        const radius = Math.min(width, height) / 2 - margin;
+        const D = dimensions.length;
+        const anchors = dimensions.map((dim, j) => ({
+          dim,
+          x: radius * Math.cos((j * 2 * Math.PI) / D),
+          y: radius * Math.sin((j * 2 * Math.PI) / D)
+        }));
+
+        // Compute Radviz positions
+        const points = data.map(d => {
+          const values = dimensions.map(dim => +d[dim]);
+          const sum = values.reduce((a, b) => a + b, 0) || 1;
+          let x = 0, y = 0;
+          dimensions.forEach((dim, j) => {
+            const weight = values[j] / sum;
+            x += weight * anchors[j].x;
+            y += weight * anchors[j].y;
+          });
+          return {x, y, label: d[label_col]};
+        });
+
+        // Color scale
+        const classes = Array.from(new Set(points.map(d => d.label)));
+        const color = d3.scaleOrdinal()
+          .domain(classes)
+          .range(d3.schemeCategory10);
+
+        // Tooltip div
+        const tooltip = d3.select("body").append("div")
+          .style("position", "absolute")
+          .style("pointer-events", "none")
+          .style("background", "rgba(255,255,255,0.95)")
+          .style("border", "1px solid #ccc")
+          .style("padding", "4px 8px")
+          .style("border-radius", "4px")
+          .style("font", "12px sans-serif")
+          .style("display", "none");
+
+        // Draw SVG
+        const svg = d3.select("#radviz")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height);
+
+        const g = svg.append("g")
+          .attr("transform", `translate(${width/2},${height/2})`);
+
+        // Panel circle
+        g.append("circle")
+          .attr("r", radius)
+          .attr("fill", "#f8f8f8")
+          .attr("stroke", "#ccc");
+
+        // Anchors
+        g.selectAll(".anchor")
+          .data(anchors)
+          .enter()
+          .append("circle")
+          .attr("class", "anchor")
+          .attr("r", 6)
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y)
+          .attr("fill", "#555");
+
+        g.selectAll(".anchor-label")
+          .data(anchors)
+          .enter()
+          .append("text")
+          .attr("x", d => d.x)
+          .attr("y", d => d.y - 10)
+          .attr("text-anchor", "middle")
+          .text(d => d.dim);
+
+        // Dots
+        g.selectAll(".dot")
+          .data(points)
+          .enter()
+          .append("circle")
+          .attr("class", "dot")
+          .attr("r", 5)
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y)
+          .attr("fill", d => color(d.label))
+          .attr("opacity", 0.6)
+          .on("mouseover", (event, d) => {
+            tooltip
+              .style("display", "block")
+              .html(`<strong>Class:</strong> ${d.label}`);
+          })
+          .on("mousemove", event => {
+            tooltip
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px");
+          })
+          .on("mouseout", () => {
+            tooltip.style("display", "none");
+          });
+    </script>
+</body>
+</html>

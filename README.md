@@ -4,7 +4,7 @@ Este proyecto es una aplicación web para visualizar datos utilizando Flask como
 
 ## Requisitos
 
-- Python 3.7+
+- Python 3.11+
 - Flask
 - Pandas
 - NumPy
@@ -13,8 +13,12 @@ Este proyecto es una aplicación web para visualizar datos utilizando Flask como
 
 1. Clone el repositorio:
    ```
-   git clone <url_del_repositorio>
-   cd <nombre_del_directorio>
+   git clone https://github.com/camilacod/labRadViz.git
+   cd labRadViz
+   ```
+2. Cree un entorno virtual y luego activelo:
+   ```
+   python -m venv venv && source venv/Scripts/activate
    ```
 
 2. Instale las dependencias:
@@ -47,14 +51,3 @@ Este proyecto es una aplicación web para visualizar datos utilizando Flask como
 └── templates/            # Plantillas HTML
     └── index.html
 ```
-
-## Funcionalidades
-
-- API que sirve datos para visualizaciones
-- Gráfico de dispersión interactivo
-- Gráfico de barras interactivo
-- Tooltips al pasar el mouse sobre los elementos
-
-## Personalización de Datos
-
-Para utilizar sus propios datos, modifique la función `get_data()` en `app.py`. Puede procesar sus datos utilizando pandas y numpy según sea necesario. 

@@ -1,64 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CSV Data D3.js Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualización de Datos con D3.js</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <!-- Importar D3.js desde CDN -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .chart { margin: 40px; }
-        .bar { fill: steelblue; }
-        .bar:hover { fill: orange; }
-        .axis-label { font-size: 12px; }
-    </style>
 </head>
 <body>
-    <h1>CSV Data Visualization with D3.js</h1>
-    <svg class="chart" width="700" height="400"></svg>
-    <script>
-        fetch('/api/data')
-            .then(response => response.json())
-            .then(data => {
-                // Assume data is an array of objects, use first two columns for bar chart
-                if (data.length === 0) return;
-                const keys = Object.keys(data[0]);
-                const xKey = keys[0];
-                const yKey = keys[1];
+    <div class="container">
+        <h1>Visualización de Datos con D3.js y Flask</h1>
+        <div id="visualization"></div>
+        <div class="controls">
+            <button id="scatterplot">Gráfico de Dispersión</button>
+            <button id="barchart">Gráfico de Barras</button>
+        </div>
+    </div>
 
-                const svg = d3.select(".chart"),
-                      width = +svg.attr("width"),
-                      height = +svg.attr("height"),
-                      margin = {top: 30, right: 30, bottom: 70, left: 60};
-
-                const x = d3.scaleBand()
-                    .domain(data.map(d => d[xKey]))
-                    .range([margin.left, width - margin.right])
-                    .padding(0.2);
-
-                const y = d3.scaleLinear()
-                    .domain([0, d3.max(data, d => +d[yKey])]).nice()
-                    .range([height - margin.bottom, margin.top]);
-
-                svg.append("g")
-                    .attr("transform", `translate(0,${height - margin.bottom})`)
-                    .call(d3.axisBottom(x))
-                    .selectAll("text")
-                        .attr("transform", "rotate(-45)")
-                        .style("text-anchor", "end");
-
-                svg.append("g")
-                    .attr("transform", `translate(${margin.left},0)`)
-                    .call(d3.axisLeft(y));
-
-                svg.selectAll(".bar")
-                    .data(data)
-                    .enter().append("rect")
-                    .attr("class", "bar")
-                    .attr("x", d => x(d[xKey]))
-                    .attr("y", d => y(+d[yKey]))
-                    .attr("width", x.bandwidth())
-                    .attr("height", d => y(0) - y(+d[yKey]));
-            });
-    </script>
+    <script src="{{ url_for('static', filename='js/visualizations.js') }}"></script>
 </body>
-</html>
+</html> 

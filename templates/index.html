@@ -10,6 +10,7 @@
         .bar { fill: steelblue; }
         .bar:hover { fill: orange; }
         .axis-label { font-size: 12px; }
+        .anchor { cursor: move; }
     </style>
 </head>
 <body>
@@ -30,18 +31,23 @@
           y: radius * Math.sin((j * 2 * Math.PI) / D)
         }));
 
-        // Compute Radviz positions
-        const points = data.map(d => {
-          const values = dimensions.map(dim => +d[dim]);
-          const sum = values.reduce((a, b) => a + b, 0) || 1;
-          let x = 0, y = 0;
-          dimensions.forEach((dim, j) => {
-            const weight = values[j] / sum;
-            x += weight * anchors[j].x;
-            y += weight * anchors[j].y;
+        // Function to compute RadViz positions
+        function computePositions() {
+          return data.map(d => {
+            const values = dimensions.map(dim => +d[dim]);
+            const sum = values.reduce((a, b) => a + b, 0) || 1;
+            let x = 0, y = 0;
+            dimensions.forEach((dim, j) => {
+              const weight = values[j] / sum;
+              x += weight * anchors[j].x;
+              y += weight * anchors[j].y;
+            });
+            return {x, y, label: d[label_col]};
           });
-          return {x, y, label: d[label_col]};
-        });
+        }
+
+        // Initial point positions
+        let points = computePositions();
 
         // Color scale
         const classes = Array.from(new Set(points.map(d => d.label)));
@@ -75,6 +81,47 @@
           .attr("fill", "#f8f8f8")
           .attr("stroke", "#ccc");
 
+        // Drag behavior
+        const drag = d3.drag()
+          .on("start", dragStarted)
+          .on("drag", dragged)
+          .on("end", dragEnded);
+
+        function dragStarted(event, d) {
+          d3.select(this).raise().attr("fill", "orange");
+        }
+
+        function dragged(event, d) {
+          // Calculate distance from center to keep within circle
+          const dist = Math.sqrt(event.x * event.x + event.y * event.y);
+          if (dist > radius) {
+            const scale = radius / dist;
+            d.x = event.x * scale;
+            d.y = event.y * scale;
+          } else {
+            d.x = event.x;
+            d.y = event.y;
+          }
+          
+          // Update anchor position
+          d3.select(this)
+            .attr("cx", d.x)
+            .attr("cy", d.y);
+          
+          // Update label position
+          d3.select(`text[data-dim="${d.dim}"]`)
+            .attr("x", d.x)
+            .attr("y", d.y - 10);
+          
+          // Recalculate and update all points
+          points = computePositions();
+          updatePoints();
+        }
+
+        function dragEnded(event, d) {
+          d3.select(this).attr("fill", "#555");
+        }
+
         // Anchors
         g.selectAll(".anchor")
           .data(anchors)
@@ -84,41 +131,56 @@
           .attr("r", 6)
           .attr("cx", d => d.x)
           .attr("cy", d => d.y)
-          .attr("fill", "#555");
+          .attr("fill", "#555")
+          .call(drag);
 
         g.selectAll(".anchor-label")
           .data(anchors)
           .enter()
           .append("text")
+          .attr("class", "anchor-label")
           .attr("x", d => d.x)
           .attr("y", d => d.y - 10)
           .attr("text-anchor", "middle")
+          .attr("data-dim", d => d.dim)
           .text(d => d.dim);
 
-        // Dots
-        g.selectAll(".dot")
-          .data(points)
-          .enter()
-          .append("circle")
-          .attr("class", "dot")
-          .attr("r", 5)
-          .attr("cx", d => d.x)
-          .attr("cy", d => d.y)
-          .attr("fill", d => color(d.label))
-          .attr("opacity", 0.6)
-          .on("mouseover", (event, d) => {
-            tooltip
-              .style("display", "block")
-              .html(`<strong>Class:</strong> ${d.label}`);
-          })
-          .on("mousemove", event => {
-            tooltip
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 10) + "px");
-          })
-          .on("mouseout", () => {
-            tooltip.style("display", "none");
-          });
+        // Dots container group
+        const dotsGroup = g.append("g").attr("class", "dots-group");
+
+        // Function to update points
+        function updatePoints() {
+          // Remove existing dots
+          dotsGroup.selectAll(".dot").remove();
+          
+          // Add updated dots
+          dotsGroup.selectAll(".dot")
+            .data(points)
+            .enter()
+            .append("circle")
+            .attr("class", "dot")
+            .attr("r", 5)
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y)
+            .attr("fill", d => color(d.label))
+            .attr("opacity", 0.6)
+            .on("mouseover", (event, d) => {
+              tooltip
+                .style("display", "block")
+                .html(`<strong>Class:</strong> ${d.label}`);
+            })
+            .on("mousemove", event => {
+              tooltip
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", () => {
+              tooltip.style("display", "none");
+            });
+        }
+
+        // Initial rendering of points
+        updatePoints();
     </script>
 </body>
 </html> 

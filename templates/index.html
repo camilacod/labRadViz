@@ -5,24 +5,183 @@
     <title>CSV Data D3.js Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; }
-        .chart { margin: 40px; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+        }
+        .visualization-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .chart { 
+            margin-bottom: 40px;
+            position: relative;
+        }
+        .chart-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
         .bar { fill: steelblue; }
         .bar:hover { fill: orange; }
         .axis-label { font-size: 12px; }
         .anchor { cursor: move; }
+        
+        /* Info icon styling */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+            cursor: help;
+            vertical-align: middle;
+            position: relative;
+        }
+        
+        .info-tooltip {
+            visibility: hidden;
+            position: absolute;
+            width: 250px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            text-align: left;
+            padding: 10px;
+            border-radius: 6px;
+            z-index: 1000;
+            top: -5px;
+            left: 130%;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-weight: normal;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .info-icon:hover .info-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Triangle pointer for tooltip */
+        .info-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 15px;
+            right: 100%;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent rgba(0, 0, 0, 0.8) transparent transparent;
+        }
+        
+        /* Parallel coordinates styling */
+        .parallel-coordinates {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .dimension path {
+            fill: none;
+            stroke: #ccc;
+        }
+        .dimension text {
+            font-size: 11px;
+        }
+        .dimension .tick text {
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .dimension.selected text {
+            font-weight: bold;
+        }
+        .foreground path {
+            fill: none;
+            stroke-width: 1.5;
+            opacity: 0.6;
+        }
+        .foreground path.fade {
+            opacity: 0.05;
+        }
+        .brush .selection {
+            fill: rgba(100, 100, 100, 0.1);
+            stroke: #888;
+        }
+        .dimension .axis-title {
+            font-weight: bold;
+            cursor: move;
+        }
+        .dimension.dragging {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
     <h1>Visualización de Datos con D3.js</h1>
-    <div id="radviz"></div>
+    <div class="visualization-container">
+        <div class="chart">
+            <div class="chart-title">
+                RadViz Visualization
+                <span class="info-icon">i
+                    <span class="info-tooltip">
+                        Visualización RadViz: Esta visualización representa cada dato como un punto en el espacio. Las características (features) se distribuyen alrededor del círculo como "anclajes". Puedes arrastrar estos anclajes para reorganizarlos y ver cómo cambia la distribución de los datos, revelando diferentes relaciones entre las variables.
+                    </span>
+                </span>
+            </div>
+            <div id="radviz"></div>
+        </div>
+        <div class="chart">
+            <div class="chart-title">
+                Parallel Coordinates
+                <span class="info-icon">i
+                    <span class="info-tooltip">
+                        Coordenadas Paralelas: Cada línea vertical representa una característica y cada línea horizontal conectada representa un dato. Puedes arrastrar las columnas para reordenarlas y descubrir correlaciones. También puedes seleccionar rangos en cualquier eje para filtrar los datos y explorar subconjuntos específicos.
+                    </span>
+                </span>
+            </div>
+            <div id="parallel"></div>
+        </div>
+    </div>
+    
     <script>
         // Data and config from Flask
-        const data = JSON.parse('{{ data|safe }}');
-        const dimensions = JSON.parse('{{ dimensions|safe }}');
+        const data = {{ data|safe }};
+        const dimensions = {{ dimensions|safe }};
         const label_col = "{{ label_col }}";
-
-        const width = 700, height = 400, margin = 40;
+        const raw_data = {{ raw_data|safe }};
+        
+        // Color scale
+        const classes = Array.from(new Set(data.map(d => d[label_col])));
+        const color = d3.scaleOrdinal()
+          .domain(classes)
+          .range(d3.schemeCategory10);
+        
+        // Tooltip div
+        const tooltip = d3.select("body").append("div")
+          .style("position", "absolute")
+          .style("pointer-events", "none")
+          .style("background", "rgba(255,255,255,0.95)")
+          .style("border", "1px solid #ccc")
+          .style("padding", "4px 8px")
+          .style("border-radius", "4px")
+          .style("font", "12px sans-serif")
+          .style("display", "none");
+          
+        //////////////////////////////////
+        // RADVIZ VISUALIZATION
+        //////////////////////////////////
+        
+        const width = 600, height = 400, margin = 40;
         const radius = Math.min(width, height) / 2 - margin;
         const D = dimensions.length;
         const anchors = dimensions.map((dim, j) => ({
@@ -42,29 +201,12 @@
               x += weight * anchors[j].x;
               y += weight * anchors[j].y;
             });
-            return {x, y, label: d[label_col]};
+            return {...d, x, y, label: d[label_col]};
           });
         }
 
         // Initial point positions
         let points = computePositions();
-
-        // Color scale
-        const classes = Array.from(new Set(points.map(d => d.label)));
-        const color = d3.scaleOrdinal()
-          .domain(classes)
-          .range(d3.schemeCategory10);
-
-        // Tooltip div
-        const tooltip = d3.select("body").append("div")
-          .style("position", "absolute")
-          .style("pointer-events", "none")
-          .style("background", "rgba(255,255,255,0.95)")
-          .style("border", "1px solid #ccc")
-          .style("padding", "4px 8px")
-          .style("border-radius", "4px")
-          .style("font", "12px sans-serif")
-          .style("display", "none");
 
         // Draw SVG
         const svg = d3.select("#radviz")
@@ -168,6 +310,9 @@
               tooltip
                 .style("display", "block")
                 .html(`<strong>Class:</strong> ${d.label}`);
+                
+              // Highlight in parallel coordinates
+              parallelHighlight(d);
             })
             .on("mousemove", event => {
               tooltip
@@ -176,11 +321,216 @@
             })
             .on("mouseout", () => {
               tooltip.style("display", "none");
+              parallelUnhighlight();
             });
         }
 
         // Initial rendering of points
         updatePoints();
+        
+        //////////////////////////////////
+        // PARALLEL COORDINATES PLOT
+        //////////////////////////////////
+        
+        // Set dimensions and margins
+        const pcWidth = 600;
+        const pcHeight = 400;
+        const pcMargin = {top: 30, right: 50, bottom: 30, left: 30};
+        const pcInnerWidth = pcWidth - pcMargin.left - pcMargin.right;
+        const pcInnerHeight = pcHeight - pcMargin.top - pcMargin.bottom;
+        
+        // Create SVG
+        const pcSvg = d3.select("#parallel")
+          .append("svg")
+          .attr("width", pcWidth)
+          .attr("height", pcHeight)
+          .attr("class", "parallel-coordinates")
+          .append("g")
+          .attr("transform", `translate(${pcMargin.left},${pcMargin.top})`);
+          
+        // Initialize dimension positions array - store actual order of dimensions
+        let dimensionPositions = [...dimensions];
+        
+        // Create scales for each dimension
+        const y = {};
+        for (let i = 0; i < dimensions.length; i++) {
+            const name = dimensions[i];
+            y[name] = d3.scaleLinear()
+                .domain(d3.extent(raw_data, d => +d[name]))
+                .range([pcInnerHeight, 0]);
+        }
+        
+        // Build the x scale
+        const x = d3.scalePoint()
+            .domain(dimensionPositions)
+            .range([0, pcInnerWidth]);
+            
+        // Path generator
+        const line = d3.line()
+            .defined(d => !isNaN(d[1]))
+            .x(d => d[0])
+            .y(d => d[1]);
+            
+        // Redraw function for parallel coordinates - called when dimensions are reordered
+        function redrawParallelCoordinates() {
+            // Update x scale domain with new order
+            x.domain(dimensionPositions);
+            
+            // Update axes positions
+            pcSvg.selectAll(".dimension")
+                .transition()
+                .duration(500)
+                .attr("transform", d => `translate(${x(d)})`);
+                
+            // Update the paths
+            pcSvg.selectAll(".foreground path")
+                .transition()
+                .duration(500)
+                .attr("d", d => {
+                    return line(dimensionPositions.map(dim => [x(dim), y[dim](+d[dim])]));
+                });
+        }
+        
+        // Draw the lines
+        const foreground = pcSvg.append("g")
+            .attr("class", "foreground")
+            .selectAll("path")
+            .data(raw_data)
+            .enter()
+            .append("path")
+            .attr("d", d => {
+                return line(dimensionPositions.map(dim => [x(dim), y[dim](+d[dim])]));
+            })
+            .attr("stroke", d => color(d[label_col]))
+            .attr("data-id", (d, i) => i);
+            
+        // Drag behavior for dimensions
+        const dimensionDrag = d3.drag()
+            .on("start", function(event, d) {
+                d3.select(this).raise().classed("dragging", true);
+            })
+            .on("drag", function(event, d) {
+                // Get the current x position
+                const currentX = event.x;
+                
+                // Find the closest position in the dimensions array
+                const positions = dimensionPositions.map(dim => x(dim));
+                let closestIndex = 0;
+                let minDistance = Math.abs(positions[0] - currentX);
+                
+                for (let i = 1; i < positions.length; i++) {
+                    const distance = Math.abs(positions[i] - currentX);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestIndex = i;
+                    }
+                }
+                
+                // If the dimension is dragged to a different position, swap them
+                const currentIndex = dimensionPositions.indexOf(d);
+                if (currentIndex !== closestIndex) {
+                    // Swap dimensions in the array
+                    [dimensionPositions[currentIndex], dimensionPositions[closestIndex]] = 
+                    [dimensionPositions[closestIndex], dimensionPositions[currentIndex]];
+                    
+                    // Redraw
+                    redrawParallelCoordinates();
+                }
+            })
+            .on("end", function(event, d) {
+                d3.select(this).classed("dragging", false);
+            });
+            
+        // Draw the axes
+        const axes = pcSvg.selectAll(".dimension")
+            .data(dimensionPositions)
+            .enter()
+            .append("g")
+            .attr("class", "dimension")
+            .attr("transform", d => `translate(${x(d)})`)
+            .call(dimensionDrag);
+            
+        // Add axis title
+        axes.append("text")
+            .attr("class", "axis-title")
+            .attr("y", -10)
+            .attr("text-anchor", "middle")
+            .text(d => d);
+            
+        // Add axis lines
+        axes.append("g")
+            .each(function(d) {
+                d3.select(this).call(d3.axisLeft().scale(y[d]));
+            });
+            
+        // Add brushes
+        axes.append("g")
+            .attr("class", "brush")
+            .each(function(d) {
+                d3.select(this).call(
+                    d3.brushY()
+                        .extent([[-8, 0], [8, pcInnerHeight]])
+                        .on("start", brushstart)
+                        .on("brush", brushed)
+                        .on("end", brushend)
+                );
+            });
+            
+        function brushstart(event) {
+            if (event.sourceEvent) event.sourceEvent.stopPropagation();
+        }
+            
+        // Function to highlight a specific path in parallel coordinates
+        function parallelHighlight(d) {
+            foreground.style("opacity", 0.1);
+            foreground.filter(p => p[label_col] === d[label_col])
+                .style("opacity", 1)
+                .style("stroke-width", "2px");
+        }
+        
+        // Function to restore all paths
+        function parallelUnhighlight() {
+            foreground.style("opacity", 0.6)
+                .style("stroke-width", "1.5px");
+        }
+        
+        let actives = [];
+        
+        // Update data based on brush selection
+        function brushed(event) {
+            actives = [];
+            
+            pcSvg.selectAll(".brush")
+                .filter(function() {
+                    return d3.brushSelection(this);
+                })
+                .each(function(d) {
+                    actives.push({
+                        dimension: d,
+                        extent: d3.brushSelection(this).map(y[d].invert)
+                    });
+                });
+                
+            if (actives.length === 0) {
+                foreground.style("display", null);
+            } else {
+                foreground.style("display", d => {
+                    return actives.every(active => {
+                        const dim = active.dimension;
+                        const value = +d[dim];
+                        return active.extent[1] <= value && value <= active.extent[0];
+                    }) ? null : "none";
+                });
+            }
+        }
+        
+        function brushend(event) {
+            if (!event.selection) {
+                // If no selection, reset the brush
+                actives = [];
+                foreground.style("display", null);
+            }
+        }
     </script>
 </body>
 </html> 

@@ -12,22 +12,31 @@ def index():
     # Load the iris dataset
     csv_path = os.path.join(os.path.dirname(__file__), 'iris-1.csv')
     df = pd.read_csv(csv_path)
-    # Detect numeric columns (for Radviz anchors)
+    
+    # Detect numeric columns (for Radviz anchors and Parallel Coordinates)
     numeric_cols = df.select_dtypes(include='number').columns.tolist()
+    
     # Detect categorical column (for coloring)
     categorical_cols = [col for col in df.columns if col not in numeric_cols]
     label_col = categorical_cols[0] if categorical_cols else None
-    # Normalize numeric columns
+    
+    # Save raw data for parallel coordinates
+    raw_data = df.to_dict(orient="records")
+    
+    # Normalize numeric columns for RadViz
     norm_df = df.copy()
     for col in numeric_cols:
         min_val = df[col].min()
         max_val = df[col].max()
         norm_df[col] = (df[col] - min_val) / (max_val - min_val) if max_val != min_val else 0
-    # Prepare data for the frontend
-    data = norm_df.to_dict(orient="records")
+    
+    # Prepare normalized data for RadViz
+    norm_data = norm_df.to_dict(orient="records")
+    
     return render_template(
         'index.html',
-        data=json.dumps(data),
+        data=json.dumps(norm_data),
+        raw_data=json.dumps(raw_data),
         dimensions=json.dumps(numeric_cols),
         label_col=label_col
     )

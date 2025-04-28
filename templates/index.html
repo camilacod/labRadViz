@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
-    <h1>Visualización de Datos con D3.js</h1>
+    <h1>Multi-dimensional Visualizations</h1>
     <div class="visualization-container">
         <div class="chart">
             <div class="chart-title">
@@ -21,6 +21,17 @@
             <div id="radviz"></div>
         </div>
         <div class="chart">
+          <div class="chart-title">
+              Star Coordinates
+              <span class="info-icon">i
+                  <span class="info-tooltip">
+                    Star Coordinates Plot: Cada eje irradia desde el centro representando una dimensión. Los puntos se proyectan en función de las contribuciones ponderadas de cada característica. Arrastra los ejes para explorar interactivamente las relaciones en los datos.
+                  </span>
+              </span>
+          </div>
+          <div id="star"></div>
+      </div>
+        <div class="chart">
             <div class="chart-title">
                 Parallel Coordinates
                 <span class="info-icon">i
@@ -31,6 +42,7 @@
             </div>
             <div id="parallel"></div>
         </div>
+        
     </div>
     
     <script>
@@ -44,7 +56,7 @@
         const classes = Array.from(new Set(data.map(d => d[label_col])));
         const color = d3.scaleOrdinal()
           .domain(classes)
-          .range(d3.schemeCategory10);
+          .range(d3.schemePastel2);
         
         // Tooltip div
         const tooltip = d3.select("body").append("div")
@@ -213,7 +225,7 @@
         //////////////////////////////////
         
         // Set dimensions and margins
-        const pcWidth = 650;
+        const pcWidth = 1350;
         const pcHeight = 400;
         const pcMargin = {top: 30, right: 50, bottom: 30, left: 50};
         const pcInnerWidth = pcWidth - pcMargin.left - pcMargin.right;
@@ -411,6 +423,83 @@
                 foreground.style("display", null);
             }
         }
+        
+        // --------------------------------
+        // STAR COORDINATES PLOT
+        // --------------------------------
+        
+        const starWidth = 600, starHeight = 600, starMargin = 50;
+        const starRadius = Math.min(starWidth, starHeight) / 2 - starMargin;
+        const starCx = starWidth / 2, starCy = starHeight / 2;
+        const starSvg = d3.select('#star')
+            .append('svg')
+            .attr('width', starWidth)
+            .attr('height', starHeight)
+            .append('g')
+            .attr('transform', `translate(${starCx},${starCy})`);
+        const starD = dimensions.length;
+        let starAxes = dimensions.map((dim, i) => {
+            const angle = (2 * Math.PI * i) / starD - Math.PI / 2;
+            return { dim, x: Math.cos(angle) * starRadius, y: Math.sin(angle) * starRadius, angle, scale: 1 };
+        });
+        const starDrag = d3.drag()
+            .on('start', function(event, d) { d3.select(this).raise(); })
+            .on('drag', function(event, d) {
+                const dx = event.x, dy = event.y;
+                const r = Math.sqrt(dx * dx + dy * dy) || 1;
+                d.x = (dx / r) * starRadius;
+                d.y = (dy / r) * starRadius;
+                d.angle = Math.atan2(d.y, d.x);
+                d3.select(this).attr('x2', d.x).attr('y2', d.y);
+                d3.select(`#star-label-${d.dim}`).attr('x', d.x).attr('y', d.dim === 'petal-length' ? d.y - 5 : d.y - 10);
+                starDrawPoints();
+            });
+        starSvg.selectAll('.star-axis-line')
+            .data(starAxes)
+            .enter().append('line')
+            .attr('class', 'star-axis-line')
+            .attr('stroke', '#555').attr('stroke-width', 2)
+            .attr('x1', 0).attr('y1', 0).attr('x2', d => d.x).attr('y2', d => d.y)
+            .call(starDrag);
+        starSvg.selectAll('.star-axis-label')
+            .data(starAxes)
+            .enter().append('text')
+            .attr('class', 'star-axis-label')
+            .attr('id', d => `star-label-${d.dim}`)
+            .attr('x', d => d.x)
+            .attr('y', d => d.dim === 'petal-length' ? d.y + 12 : d.y - 10)
+            .text(d => d.dim)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '12px')
+            .call(starDrag);
+        function starProject(d) {
+            let vx = 0, vy = 0;
+            starAxes.forEach(a => { vx += (+d[a.dim]) * a.x; vy += (+d[a.dim]) * a.y; });
+            const sum = d3.sum(dimensions, dim => +d[dim]) || 1;
+            return { x: vx / sum, y: vy / sum };
+        }
+        function starDrawPoints() {
+            const starProjected = data.map(d => Object.assign({}, d, starProject(d)));
+            const stars = starSvg.selectAll('.star-point').data(starProjected);
+            stars.exit().remove();
+            stars.enter().append('circle')
+                .attr('class', 'star-point')
+                .attr('r', 4)
+                .merge(stars)
+                .attr('cx', d => d.x).attr('cy', d => d.y)
+                .attr('fill', d => color(d[label_col]))
+                .attr('opacity', 0.7)
+                .on('mouseover', (event, d) => {
+                    tooltip.html(`<strong>${label_col}:</strong> ${d[label_col]}`)
+                        .style('display', 'block');
+                })
+                .on('mousemove', (event) => {
+                    tooltip.style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', () => tooltip.style('display', 'none'));
+        }
+        starDrawPoints();
     </script>
 </body>
-</html> 
+</html>

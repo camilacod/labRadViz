@@ -18,8 +18,8 @@
     <div id="radviz"></div>
     <script>
         // Data and config from Flask
-        const data = {{ data|safe }};
-        const dimensions = {{ dimensions|safe }};
+        const data = JSON.parse('{{ data|safe }}');
+        const dimensions = JSON.parse('{{ dimensions|safe }}');
         const label_col = "{{ label_col }}";
 
         const width = 700, height = 400, margin = 40;

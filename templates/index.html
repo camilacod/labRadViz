@@ -4,127 +4,7 @@
     <meta charset="UTF-8">
     <title>CSV Data D3.js Visualization</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-        }
-        .visualization-container {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-        .chart { 
-            margin-bottom: 40px;
-            position: relative;
-        }
-        .chart-title {
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 10px;
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-        .bar { fill: steelblue; }
-        .bar:hover { fill: orange; }
-        .axis-label { font-size: 12px; }
-        .anchor { cursor: move; }
-        
-        /* Info icon styling */
-        .info-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            background-color: #007bff;
-            color: white;
-            border-radius: 50%;
-            font-size: 12px;
-            font-weight: bold;
-            margin-left: 8px;
-            cursor: help;
-            vertical-align: middle;
-            position: relative;
-        }
-        
-        .info-tooltip {
-            visibility: hidden;
-            position: absolute;
-            width: 250px;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: #fff;
-            text-align: left;
-            padding: 10px;
-            border-radius: 6px;
-            z-index: 1000;
-            top: -5px;
-            left: 130%;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-weight: normal;
-            font-size: 12px;
-            line-height: 1.5;
-        }
-        
-        .info-icon:hover .info-tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
-        
-        /* Triangle pointer for tooltip */
-        .info-tooltip::after {
-            content: "";
-            position: absolute;
-            top: 15px;
-            right: 100%;
-            border-width: 5px;
-            border-style: solid;
-            border-color: transparent rgba(0, 0, 0, 0.8) transparent transparent;
-        }
-        
-        /* Parallel coordinates styling */
-        .parallel-coordinates {
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .dimension path {
-            fill: none;
-            stroke: #ccc;
-        }
-        .dimension text {
-            font-size: 11px;
-        }
-        .dimension .tick text {
-            font-size: 10px;
-            font-weight: bold;
-        }
-        .dimension.selected text {
-            font-weight: bold;
-        }
-        .foreground path {
-            fill: none;
-            stroke-width: 1.5;
-            opacity: 0.6;
-        }
-        .foreground path.fade {
-            opacity: 0.05;
-        }
-        .brush .selection {
-            fill: rgba(100, 100, 100, 0.1);
-            stroke: #888;
-        }
-        .dimension .axis-title {
-            font-weight: bold;
-            cursor: move;
-        }
-        .dimension.dragging {
-            opacity: 0.8;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
     <h1>Visualización de Datos con D3.js</h1>
@@ -155,10 +35,10 @@
     
     <script>
         // Data and config from Flask
-        const data = {{ data|safe }};
-        const dimensions = {{ dimensions|safe }};
+        const data = JSON.parse('{{ data|safe }}');
+        const dimensions = JSON.parse('{{ dimensions|safe }}');
         const label_col = "{{ label_col }}";
-        const raw_data = {{ raw_data|safe }};
+        const raw_data = JSON.parse('{{ raw_data|safe }}');
         
         // Color scale
         const classes = Array.from(new Set(data.map(d => d[label_col])));
